@@ -1,162 +1,186 @@
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deskorolka Hero+</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Skate Johnny</title>
 
 <style>
-body{margin:0;overflow:hidden;background:#87ceeb;font-family:Arial}
-canvas{display:block;margin:auto;border:3px solid #ff4500}
-#ui{position:absolute;top:10px;left:10px;color:white;text-shadow:2px 2px 4px #000}
-#menu{
- position:absolute;inset:0;background:rgba(0,0,0,.8);
- display:flex;flex-direction:column;align-items:center;justify-content:center;
- color:white
+body {
+  margin:0;
+  background: linear-gradient(#5dade2,#ecf0f1);
+  overflow:hidden;
+  font-family: Arial, sans-serif;
 }
-button{
- padding:15px 25px;font-size:18px;margin:8px;
- background:#ff4500;color:white;border:none;border-radius:8px
+canvas { display:block; }
+
+#hud {
+  position:fixed;
+  top:10px;
+  left:10px;
+  background:rgba(0,0,0,.5);
+  color:#fff;
+  padding:10px;
+  border-radius:12px;
 }
-#mobile{
- position:absolute;bottom:20px;right:20px;
- display:flex;flex-direction:column
+
+#menu {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.85);
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  z-index:10;
+}
+
+button {
+  padding:15px 30px;
+  margin-top:15px;
+  font-size:20px;
+  border:none;
+  border-radius:10px;
+  background:#ff4757;
+  color:white;
 }
 </style>
 </head>
 
 <body>
 
-<canvas id="canvas" width="800" height="450"></canvas>
-
-<div id="ui">
-Punkty: <span id="score">0</span><br>
-Rekord: <span id="high">0</span><br>
-Triki: <span id="tricks">0</span>
-</div>
-
 <div id="menu">
-<h1>🛹 Deskorolka Hero+</h1>
-<p>Spacja – Ollie | K – Kickflip | G – Grind</p>
-<button onclick="startGame()">Graj</button>
+  <h1>🛹 SKATE JOHNNY</h1>
+  <p>Tony Hawk style</p>
+  <button onclick="start()">START</button>
 </div>
 
-<div id="mobile">
-<button onclick="ollie()">🛹</button>
-<button onclick="kickflip()">🔄</button>
+<div id="hud">
+Punkty: <span id="score">0</span><br>
+Combo: <span id="combo">x1</span>
 </div>
+
+<canvas id="c"></canvas>
 
 <script>
-const canvas=document.getElementById("canvas");
-const ctx=canvas.getContext("2d");
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+const scoreEl = document.getElementById("score");
+const comboEl = document.getElementById("combo");
 
-let keys={},game="menu";
-let score=0,tricks=0,speed=3;
-let high=localStorage.getItem("high")||0;
+function resize(){
+  c.width = innerWidth;
+  c.height = innerHeight;
+}
+resize(); onresize = resize;
 
-document.getElementById("high").textContent=high;
+let game=false;
+let score=0, combo=1;
 
-document.addEventListener("keydown",e=>keys[e.code]=true);
-document.addEventListener("keyup",e=>keys[e.code]=false);
-
-let player={
- x:100,y:320,w:50,h:30,vy:0,ground:true,
- ollie:0,flip:0,grind:false
+let skater = {
+  x:0, y:0, z:0,
+  vx:0, vz:0,
+  angle:0,
+  air:false,
+  trick:""
 };
 
-let obstacles=[],coins=[];
+let keys = {};
+onkeydown = e => keys[e.code]=true;
+onkeyup = e => keys[e.code]=false;
 
-function sound(freq){
- const a=new AudioContext();
- const o=a.createOscillator();
- o.frequency.value=freq;
- o.connect(a.destination);
- o.start();o.stop(a.currentTime+.1);
-}
-
-function ollie(){
- if(player.ground){
-  player.vy=-18;player.ground=false;
-  player.ollie=15;tricks++;sound(700);
- }
-}
-
-function kickflip(){
- if(!player.ground){
-  player.flip=20;tricks+=2;sound(1000);
- }
-}
-
-function startGame(){
- game="play";
- document.getElementById("menu").style.display="none";
- score=0;tricks=0;speed=3;
- obstacles=[];coins=[];
-}
-
-function update(){
- if(game!=="play")return;
-
- if(keys["Space"])ollie();
- if(keys["KeyK"])kickflip();
- if(keys["ArrowLeft"])player.x-=5;
- if(keys["ArrowRight"])player.x+=5;
-
- player.vy+=1;
- player.y+=player.vy;
-
- if(player.y>=320){
-  player.y=320;player.vy=0;player.ground=true;
-  player.ollie=0;player.flip=0;
- }
-
- if(Math.random()<0.02)
-  obstacles.push({x:800,y:350,w:40,h:50});
-
- obstacles.forEach((o,i)=>{
-  o.x-=speed;
-  if(player.x<o.x+o.w && player.x+50>o.x &&
-     player.y<o.y+o.h && player.y+30>o.y){
-      game="over";
-      document.getElementById("menu").style.display="flex";
-      if(score>high){high=score;localStorage.setItem("high",high)}
+// TOUCH (iOS)
+c.ontouchstart = e => {
+  if(!skater.air){
+    skater.vz=14;
+    skater.air=true;
+    trick("OLLIE",100);
   }
-  if(o.x<-50)obstacles.splice(i,1);
- });
+};
 
- score++;speed+=0.002;
- document.getElementById("score").textContent=Math.floor(score);
- document.getElementById("tricks").textContent=tricks;
- document.getElementById("high").textContent=high;
+// TRICKI
+function trick(name, pts){
+  skater.trick=name;
+  combo++;
+  score+=pts*combo;
 }
 
+// START
+function start(){
+  document.getElementById("menu").style.display="none";
+  game=true;
+}
+
+// UPDATE
+function update(){
+  if(!game) return;
+
+  if(keys.ArrowUp) skater.vx+=0.1;
+  if(keys.ArrowLeft) skater.angle-=0.05;
+  if(keys.ArrowRight) skater.angle+=0.05;
+
+  if(keys.Space && !skater.air){
+    skater.vz=14;
+    skater.air=true;
+    trick("OLLIE",100);
+  }
+
+  if(keys.KeyK && skater.air) trick("KICKFLIP",300);
+  if(keys.KeyS && skater.air) trick("SHOVE-IT",250);
+
+  skater.z += skater.vz;
+  skater.vz -= 0.8;
+
+  if(skater.z<=0){
+    skater.z=0;
+    skater.vz=0;
+    skater.air=false;
+    skater.trick="";
+    combo=1;
+  }
+
+  skater.x += skater.vx;
+  skater.vx*=0.98;
+
+  scoreEl.textContent = Math.floor(score);
+  comboEl.textContent = "x"+combo;
+}
+
+// DRAW
 function draw(){
- ctx.clearRect(0,0,800,450);
- ctx.fillStyle="#444";
- ctx.fillRect(0,370,800,80);
+  ctx.clearRect(0,0,c.width,c.height);
 
- ctx.save();
- ctx.translate(player.x+25,player.y+15);
- if(player.flip>0)ctx.rotate(player.flip*0.2);
- else if(player.ollie>0)ctx.rotate(-0.3);
- ctx.fillStyle="#8b4513";
- ctx.fillRect(-25,0,50,10);
- ctx.fillStyle="#ff4500";
- ctx.fillRect(-15,-30,30,30);
- ctx.restore();
+  // ground
+  ctx.fillStyle="#7bed9f";
+  ctx.fillRect(0,c.height*0.65,c.width,c.height);
 
- ctx.fillStyle="#8b0000";
- obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h));
+  // ramp
+  ctx.fillStyle="#95a5a6";
+  ctx.fillRect(c.width/2+200,c.height*0.65-150,200,150);
+
+  // rail (grind)
+  ctx.fillStyle="#2f3542";
+  ctx.fillRect(c.width/2-200,c.height*0.65-80,300,10);
+
+  // skater
+  ctx.save();
+  ctx.translate(c.width/2, c.height*0.65 - skater.z);
+  ctx.rotate(skater.angle);
+  ctx.fillStyle="#e74c3c";
+  ctx.fillRect(-12,-35,24,35);
+  ctx.fillStyle="#2c2c2c";
+  ctx.fillRect(-40,0,80,10);
+  ctx.restore();
+
+  // trick text
+  if(skater.trick){
+    ctx.fillStyle="white";
+    ctx.font="30px Arial";
+    ctx.fillText(skater.trick, c.width/2-70,100);
+  }
 }
 
 function loop(){
- update();draw();
- requestAnimationFrame(loop);
-}
-loop();
-</script>
-
-</body>
-</html>
-
-
+  u
