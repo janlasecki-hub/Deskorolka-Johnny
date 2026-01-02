@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deskorolka Hero+</title>
+
+<style>
+body{margin:0;overflow:hidden;background:#87ceeb;font-family:Arial}
+canvas{display:block;margin:auto;border:3px solid #ff4500}
+#ui{position:absolute;top:10px;left:10px;color:white;text-shadow:2px 2px 4px #000}
+#menu{
+ position:absolute;inset:0;background:rgba(0,0,0,.8);
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ color:white
+}
+button{
+ padding:15px 25px;font-size:18px;margin:8px;
+ background:#ff4500;color:white;border:none;border-radius:8px
+}
+#mobile{
+ position:absolute;bottom:20px;right:20px;
+ display:flex;flex-direction:column
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="canvas" width="800" height="450"></canvas>
+
+<div id="ui">
+Punkty: <span id="score">0</span><br>
+Rekord: <span id="high">0</span><br>
+Triki: <span id="tricks">0</span>
+</div>
+
+<div id="menu">
+<h1>🛹 Deskorolka Hero+</h1>
+<p>Spacja – Ollie | K – Kickflip | G – Grind</p>
+<button onclick="startGame()">Graj</button>
+</div>
+
+<div id="mobile">
+<button onclick="ollie()">🛹</button>
+<button onclick="kickflip()">🔄</button>
+</div>
+
+<script>
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+
+let keys={},game="menu";
+let score=0,tricks=0,speed=3;
+let high=localStorage.getItem("high")||0;
+
+document.getElementById("high").textContent=high;
+
+document.addEventListener("keydown",e=>keys[e.code]=true);
+document.addEventListener("keyup",e=>keys[e.code]=false);
+
+let player={
+ x:100,y:320,w:50,h:30,vy:0,ground:true,
+ ollie:0,flip:0,grind:false
+};
+
+let obstacles=[],coins=[];
+
+function sound(freq){
+ const a=new AudioContext();
+ const o=a.createOscillator();
+ o.frequency.value=freq;
+ o.connect(a.destination);
+ o.start();o.stop(a.currentTime+.1);
+}
+
+function ollie(){
+ if(player.ground){
+  player.vy=-18;player.ground=false;
+  player.ollie=15;tricks++;sound(700);
+ }
+}
+
+function kickflip(){
+ if(!player.ground){
+  player.flip=20;tricks+=2;sound(1000);
+ }
+}
+
+function startGame(){
+ game="play";
+ document.getElementById("menu").style.display="none";
+ score=0;tricks=0;speed=3;
+ obstacles=[];coins=[];
+}
+
+function update(){
+ if(game!=="play")return;
+
+ if(keys["Space"])ollie();
+ if(keys["KeyK"])kickflip();
+ if(keys["ArrowLeft"])player.x-=5;
+ if(keys["ArrowRight"])player.x+=5;
+
+ player.vy+=1;
+ player.y+=player.vy;
+
+ if(player.y>=320){
+  player.y=320;player.vy=0;player.ground=true;
+  player.ollie=0;player.flip=0;
+ }
+
+ if(Math.random()<0.02)
+  obstacles.push({x:800,y:350,w:40,h:50});
+
+ obstacles.forEach((o,i)=>{
+  o.x-=speed;
+  if(player.x<o.x+o.w && player.x+50>o.x &&
+     player.y<o.y+o.h && player.y+30>o.y){
+      game="over";
+      document.getElementById("menu").style.display="flex";
+      if(score>high){high=score;localStorage.setItem("high",high)}
+  }
+  if(o.x<-50)obstacles.splice(i,1);
+ });
+
+ score++;speed+=0.002;
+ document.getElementById("score").textContent=Math.floor(score);
+ document.getElementById("tricks").textContent=tricks;
+ document.getElementById("high").textContent=high;
+}
+
+function draw(){
+ ctx.clearRect(0,0,800,450);
+ ctx.fillStyle="#444";
+ ctx.fillRect(0,370,800,80);
+
+ ctx.save();
+ ctx.translate(player.x+25,player.y+15);
+ if(player.flip>0)ctx.rotate(player.flip*0.2);
+ else if(player.ollie>0)ctx.rotate(-0.3);
+ ctx.fillStyle="#8b4513";
+ ctx.fillRect(-25,0,50,10);
+ ctx.fillStyle="#ff4500";
+ ctx.fillRect(-15,-30,30,30);
+ ctx.restore();
+
+ ctx.fillStyle="#8b0000";
+ obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h));
+}
+
+function loop(){
+ update();draw();
+ requestAnimationFrame(loop);
+}
+loop();
+</script>
+
+</body>
+</html>
+
+
